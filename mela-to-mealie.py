@@ -9,11 +9,27 @@ import uuid
 import base64
 
 def format_duration(time_str):
+    """Formats a Mela duration string into a Mealie-compatible format.
+
+    Args:
+        time_str: The duration string from Mela (e.g., "1h 30m").
+
+    Returns:
+        A formatted duration string (e.g., "1 hours 30 minutes").
+    """
     if not time_str: return ""
     time_str = time_str.lower().strip().replace('m', ' minutes').replace('h', ' hours')
     return time_str.strip()
 
 def parse_nutrition(text):
+    """Parses nutrition information from a text block.
+
+    Args:
+        text: A string containing nutrition information.
+
+    Returns:
+        A dictionary with parsed nutrition data.
+    """
     if not text: return {}
     nutrition_obj = {}
     cal_match = re.search(r'(\d+)\s*(?:kcal|calories)', text, re.IGNORECASE)
@@ -22,6 +38,14 @@ def parse_nutrition(text):
     return nutrition_obj
 
 def convert_mela_to_mealie_schema(mela_data):
+    """Converts a Mela recipe JSON object to the Mealie schema.org format.
+
+    Args:
+        mela_data: A dictionary containing the Mela recipe data.
+
+    Returns:
+        A dictionary representing the recipe in Mealie's schema.org format.
+    """
     mealie_recipe = {
         "@context": "https://schema.org", "@type": "Recipe",
         "name": mela_data.get("title", "Untitled Recipe"),
@@ -55,7 +79,16 @@ def convert_mela_to_mealie_schema(mela_data):
 
 
 class MealieImporter:
+    """Handles the import of recipes into a Mealie instance."""
     def __init__(self):
+        """Initializes the MealieImporter.
+
+        Loads environment variables from a .env file, sets up the Mealie host
+        and API key, and prepares headers for API requests.
+
+        Raises:
+            ValueError: If the MEALIE_API_KEY is not found in the environment.
+        """
         load_dotenv()
         self.host = os.getenv('MEALIE_HOST', 'http://127.0.0.1:9000')
         self.api_key = os.getenv('MEALIE_API_KEY')
@@ -69,6 +102,15 @@ class MealieImporter:
         }
 
     def upload_image_to_recipe(self, recipe_slug, b64_image_data):
+        """Uploads an image to a specific recipe in Mealie.
+
+        Args:
+            recipe_slug: The slug of the recipe to upload the image to.
+            b64_image_data: A base64-encoded string of the image data.
+
+        Returns:
+            A dictionary containing the API response on success, or None on failure.
+        """
         url = f"{self.host}/api/recipes/{recipe_slug}/image"
         print(f"Uploading image to: {url}")
         try:
@@ -86,7 +128,15 @@ class MealieImporter:
         return None
 
     def create_recipe_and_get_id(self, recipe_json):
-        """Creates a new recipe and returns its ID string."""
+        """Creates a new recipe in Mealie from a JSON object.
+
+        Args:
+            recipe_json: A dictionary containing the recipe data in Mealie's
+                         schema.org format.
+
+        Returns:
+            The ID string of the newly created recipe, or None on failure.
+        """
         url = f"{self.host}/api/recipes/create/html-or-json"
         import_data = {"data": json.dumps(recipe_json)}
         try:
@@ -102,7 +152,14 @@ class MealieImporter:
             return None
             
     def get_recipe_details(self, recipe_id):
-        """Fetches the full details for a recipe by its ID."""
+        """Fetches the full details for a recipe by its ID.
+
+        Args:
+            recipe_id: The ID of the recipe to fetch.
+
+        Returns:
+            A dictionary containing the full recipe details, or None on failure.
+        """
         url = f"{self.host}/api/recipes/{recipe_id}"
         print(f"Fetching details for recipe ID: {recipe_id}")
         try:
@@ -114,6 +171,20 @@ class MealieImporter:
             return None
 
     def bulk_import_from_directory(self, directory=None):
+        """Bulk imports recipes from a directory of Mela JSON files.
+
+        It iterates over .json and .melarecipe files in the specified directory,
+        converts them to the Mealie format, creates the recipe, and uploads
+        any associated images.
+
+        Args:
+            directory: The path to the directory containing Mela recipe files.
+                       If None, it defaults to the RECIPES_DIR environment
+                       variable or './recipes'.
+
+        Raises:
+            ValueError: If the specified directory does not exist.
+        """
         if directory is None:
             directory = os.getenv('RECIPES_DIR', './recipes')
         directory = Path(directory)
@@ -169,6 +240,7 @@ class MealieImporter:
                 print(f"- {recipe}")
 
 def main():
+    """The main entry point for the script."""
     try:
         importer = MealieImporter()
         importer.bulk_import_from_directory()
